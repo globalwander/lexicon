@@ -1,5 +1,6 @@
-// Offline support: serve the app shell and word list from cache, refresh in the background.
-const CACHE = "lexicon-v3";
+// Offline support. Code files load from the network first so updates show up right away;
+// the cache is only a fallback when offline. The word list is cached first (it rarely changes).
+const CACHE = "lexicon-v4";
 const SHELL = ["./", "index.html", "styles.css", "app.js", "manifest.json", "words.json",
   "icon.svg", "icon-192.png", "icon-512.png", "THIRD_PARTY_NOTICES.txt"];
 
@@ -11,10 +12,19 @@ self.addEventListener("activate", (e) => {
     .then(() => self.clients.claim()));
 });
 self.addEventListener("fetch", (e) => {
-  if (e.request.method !== "GET" || new URL(e.request.url).origin !== location.origin) return;
+  const url = new URL(e.request.url);
+  if (e.request.method !== "GET" || url.origin !== location.origin) return;
   e.respondWith(caches.open(CACHE).then(async (cache) => {
-    const hit = await cache.match(e.request, { ignoreSearch: true });
-    const net = fetch(e.request).then((res) => { if (res.ok) cache.put(e.request, res.clone()); return res; }).catch(() => hit);
-    return hit || net;
+    if (url.pathname.endsWith("words.json")) {
+      const hit = await cache.match(e.request, { ignoreSearch: true });
+      if (hit) return hit;
+    }
+    try {
+      const res = await fetch(e.request, { cache: "no-cache" });
+      if (res.ok) cache.put(e.request, res.clone());
+      return res;
+    } catch (err) {
+      return (await cache.match(e.request, { ignoreSearch: true })) || Response.error();
+    }
   }));
 });

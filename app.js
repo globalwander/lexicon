@@ -12,7 +12,10 @@ let cleanupKeys = null;
 /* ---------- utilities ---------- */
 const today = () => Math.floor((Date.now() - new Date().getTimezoneOffset() * 60000) / 86400000);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const rand = (n) => { try { const u = new Uint32Array(1); crypto.getRandomValues(u); return u[0] % n; } catch (e) { return Math.floor(Math.random() * n); } };
+const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = rand(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const APP_VERSION = "1.1";
+let recentSlots = [];
 const fmtIvl = (d) => d < 1 ? "<1d" : d < 14 ? `${Math.round(d)}d` : d < 60 ? `${Math.round(d / 7)}w` : d < 365 ? `${Math.round(d / 30)}mo` : `${(d / 365).toFixed(1)}y`;
 const def = (w) => w.s[0];
 
@@ -103,7 +106,14 @@ function choicesFor(w) {
     if (o.id === w.id || used.has(d) || avoid.has(o.w) || o.syn.map((x) => x.toLowerCase()).includes(w.w)) continue;
     used.add(d); picks.push(d);
   }
-  return shuffle([{ d: target, ok: true }, ...picks.map((d) => ({ d, ok: false }))]);
+  // Place the correct answer in an explicitly random slot, never the same slot 3 times running
+  const opts = shuffle(picks.map((d) => ({ d, ok: false })));
+  const n = opts.length + 1;
+  let slot = rand(n), guard2 = 0;
+  while (recentSlots.length >= 2 && recentSlots.slice(-2).every((x) => x === slot) && guard2++ < 10) slot = rand(n);
+  recentSlots = [...recentSlots.slice(-4), slot];
+  opts.splice(slot, 0, { d: target, ok: true });
+  return opts;
 }
 
 function renderMC(w, onAnswer, opts = {}) {
@@ -393,7 +403,7 @@ function viewSettings() {
     <h2>Install on your phone</h2>
     <p class="fine"><b>iPhone:</b> in Safari tap Share, then "Add to Home Screen".<br><b>Android:</b> in Chrome tap the ⋮ menu, then "Install app" or "Add to Home screen".<br>It works offline once installed.</p>
     <h2>About</h2>
-    <p class="fine">${WORDS.length.toLocaleString()} SAT-level words. Word choices come from openly licensed SAT lists; definitions, examples and synonyms come from Princeton WordNet 3.0. Scheduling uses the SM-2 spaced-repetition algorithm.</p>
+    <p class="fine">${WORDS.length.toLocaleString()} SAT-level words. Word choices come from openly licensed SAT lists; definitions, examples and synonyms come from Princeton WordNet 3.0. Scheduling uses the SM-2 spaced-repetition algorithm. Version ${APP_VERSION}.</p>
     <details><summary class="fine">Credits and licenses</summary><pre class="notices" id="notices">Loading…</pre></details>`;
   $view.querySelectorAll(".stepper button").forEach((b) => b.addEventListener("click", () => {
     const k = b.dataset.k, lim = k === "batch" ? [10, 100] : [0, 60];
