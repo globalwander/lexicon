@@ -1,6 +1,6 @@
 // Offline support. Code files load from the network first so updates show up right away;
 // the cache is only a fallback when offline. The word list is cached first (it rarely changes).
-const CACHE = "lexicon-v4";
+const CACHE = "lexicon-v5";
 const SHELL = ["./", "index.html", "styles.css", "app.js", "manifest.json", "words.json",
   "icon.svg", "icon-192.png", "icon-512.png", "THIRD_PARTY_NOTICES.txt"];
 
